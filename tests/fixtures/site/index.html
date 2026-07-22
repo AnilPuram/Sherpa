@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Sherpa Test</title>
+    <style>
+      body {
+        background: #f4f7fb;
+        color: #172033;
+        font: 18px system-ui, sans-serif;
+        margin: 0;
+      }
+      main {
+        margin: 150px auto;
+        width: 520px;
+      }
+      input, button {
+        border-radius: 8px;
+        box-sizing: border-box;
+        display: block;
+        font: inherit;
+        height: 54px;
+        margin-top: 18px;
+        width: 100%;
+      }
+      input {
+        border: 2px solid #7b879e;
+        padding: 0 14px;
+      }
+      button {
+        background: #1769e0;
+        border: 0;
+        color: white;
+        cursor: pointer;
+        font-weight: 700;
+      }
+      #result {
+        color: #14733b;
+        font-size: 28px;
+        font-weight: 700;
+        margin-top: 28px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Complete the Sherpa check</h1>
+      <label for="name">Agent name</label>
+      <input id="name" placeholder="Type Sherpa">
+      <button id="complete">Complete</button>
+      <p id="result" aria-live="polite"></p>
+    </main>
+    <script>
+      document.querySelector("#complete").addEventListener("click", () => {
+        const name = document.querySelector("#name").value;
+        document.querySelector("#result").textContent =
+          name === "Sherpa" ? "Success" : "Try again";
+      });
+    </script>
+  </body>
+</html>
