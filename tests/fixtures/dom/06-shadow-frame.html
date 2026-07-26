@@ -1,0 +1,10 @@
+<!doctype html>
+<main>
+  <h1>Embedded controls</h1>
+  <div id="shadow"></div>
+  <iframe id="frame" srcdoc="<button aria-label='Frame action'>Run</button>"></iframe>
+</main>
+<script>
+  shadow.attachShadow({mode: "open"}).innerHTML =
+    '<button aria-label="Shadow action">Open</button>';
+</script>

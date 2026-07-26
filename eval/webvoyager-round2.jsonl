@@ -1,0 +1,10 @@
+{"web_name":"Apple","id":"Apple--6","ques":"Find AirPods on Apple and how many types are currently available.","web":"https://www.apple.com/"}
+{"web_name":"Apple","id":"Apple--12","ques":"What Apple Repair ways are mentioned on apple website, answer 2 of them.","web":"https://www.apple.com/"}
+{"web_name":"ArXiv","id":"ArXiv--2","ques":"Look up the most recent papers related to 'cs.CL', select one and show its abstract.","web":"https://arxiv.org/"}
+{"web_name":"ArXiv","id":"ArXiv--17","ques":"Find the paper 'GPT-4 Technical Report', when was v3 submitted?","web":"https://arxiv.org/"}
+{"web_name":"BBC News","id":"BBC News--5","ques":"Find the article \"What is climate change? A really simple guide\" and use it to answer what human activities are causing climate change.","web":"https://www.bbc.com/news/"}
+{"web_name":"BBC News","id":"BBC News--6","ques":"Find the top story from BBC News in the technology section for today.","web":"https://www.bbc.com/news/"}
+{"web_name":"Coursera","id":"Coursera--1","ques":"Search for a beginner-level online course about Python programming, suitable for someone who has no programming experience on Coursera.","web":"https://www.coursera.org/"}
+{"web_name":"ESPN","id":"ESPN--11","ques":"How many NBA teams are there and list all the teams with 'New' in their name.","web":"https://www.espn.com/"}
+{"web_name":"GitHub","id":"GitHub--3","ques":"Find out how much more package storage the Enterprise version has over Team in GitHub Pricing.","web":"https://github.com/"}
+{"web_name":"GitHub","id":"GitHub--12","ques":"Retrieve the latest release from the 'electron/electron' repository on GitHub and note down the release version number and date.","web":"https://github.com/"}

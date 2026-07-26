@@ -1,0 +1,3 @@
+{"web_name":"Apple","id":"Apple--12","ques":"What Apple Repair ways are mentioned on apple website, answer 2 of them.","web":"https://www.apple.com/"}
+{"web_name":"ArXiv","id":"ArXiv--2","ques":"Look up the most recent papers related to 'cs.CL', select one and show its abstract.","web":"https://arxiv.org/"}
+{"web_name":"BBC News","id":"BBC News--5","ques":"Find the article \"What is climate change? A really simple guide\" and use it to answer what human activities are causing climate change.","web":"https://www.bbc.com/news/"}

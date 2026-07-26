@@ -1,0 +1,12 @@
+{
+  "Apple--6": "fail",
+  "Apple--12": "fail",
+  "ArXiv--2": "pass",
+  "ArXiv--17": "fail",
+  "BBC News--5": "fail",
+  "BBC News--6": "pass",
+  "Coursera--1": "pass",
+  "ESPN--11": "pass",
+  "GitHub--3": "pass",
+  "GitHub--12": "pass"
+}

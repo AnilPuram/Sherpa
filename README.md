@@ -1,12 +1,22 @@
 # Sherpa
 
-Sherpa is a small vision-only web agent. A planner chooses the next action from a screenshot,
-a cheaper grounder returns its coordinates, and Playwright executes it. Phase 1 intentionally
-has no DOM grounding, service, database, or plugin system.
+Sherpa is a small hybrid-observation web agent. A planner chooses the next action from a viewport
+screenshot plus two compact semantic channels: currently visible controls and main-content
+Markdown. A cheaper screenshot-only grounder returns coordinates, so DOM data never bypasses
+visual grounding.
 
-The loop re-observes and re-plans after malformed model output, grounding/execution errors,
-repeated actions, or no visible state change. `SHERPA_MAX_CORRECTIONS` caps consecutive recovery
-attempts and `SHERPA_MAX_STEPS` caps the whole run.
+The default pair is the Qwen3.5-35B-A3B planner and UI-TARS-1.5-7B grounder. Both can be
+overridden through the environment.
+
+The loop keeps a bounded eight-entry progress ledger, up to eight observed memories, and
+two milestone screenshots. It re-observes and re-plans after malformed model output,
+grounding/execution errors, repeated-action cycles, or stagnation. A separate same-planner visual
+and DOM verification pass must accept every `done` answer. `SHERPA_MAX_CORRECTIONS` defaults to
+five consecutive recovery attempts and `SHERPA_MAX_STEPS` defaults to twenty planner iterations.
+Because planner calls are stateless, every request replays the accumulated page-context history:
+the initial/full snapshot followed by every later semantic diff. A new DOM entry is not added when
+the page is unchanged. Controls are capped at 4k characters, main content at 8k, and each diff at
+3k. Raw content and form values are never written to run logs.
 
 ## Setup
 
@@ -44,6 +54,48 @@ The real-model local integration test is also opt-in:
 SHERPA_RUN_REAL_MODELS=1 uv run pytest tests/test_real_models.py
 ```
 
+## WebVoyager smoke benchmark
+
+The checked-in subset contains 10 unchanged, read-only information-retrieval tasks from the
+official 643-task WebVoyager dataset. The default mode only validates local records, makes no
+network or model calls, and costs $0:
+
+```bash
+uv run sherpa webvoyager --output artifacts/webvoyager-offline.json
+```
+
+Live execution is explicit and sequential. It blocks browser requests other than GET, HEAD, and
+OPTIONS, writes one artifact directory per task, and stops before starting another task after the
+cost ceiling has been reached:
+
+```bash
+uv run sherpa webvoyager \
+  --real-model \
+  --max-cost-usd 1.00 \
+  --artifacts artifacts/webvoyager \
+  --output artifacts/webvoyager-live.json
+```
+
+The default WebVoyager policy blocks non-safe HTTP methods but can still click, type, and change
+client-side state. `--allow-write` removes that network restriction and can submit forms or mutate
+accounts, so use it only for tasks that explicitly require those effects. Execution limits can be
+overridden with `--max-steps` and `--max-corrections`.
+
+After manually reviewing a completed run, apply a fresh judgments file without repeating paid work:
+
+```bash
+uv run sherpa webvoyager \
+  --score-report artifacts/webvoyager-live.json \
+  --judgments eval/webvoyager-new-judgments.json \
+  --output artifacts/webvoyager-scored.json
+```
+
+`completion_rate` measures verifier-accepted completion. Manual labels supplied with `--judgments`
+produce `success_rate`. `WEBVOYAGER_TESTS_AND_RESULTS.md` consolidates every offline check, paid
+run, repeated experiment, cost, judgment, and failure diagnosis. `WEBVOYAGER_RUN_HISTORY.md` is
+the compact chronological ledger. These small live-site subsets are not official WebVoyager
+scores.
+
 ## Run
 
 The deterministic local task is:
@@ -64,13 +116,19 @@ uv run sherpa run \
   --real-model --artifacts artifacts/public-smoke
 ```
 
-Paid calls are never implicit: `sherpa run` refuses to start without `--real-model`. A run's
-screenshots and compact `steps.jsonl` log are written only when `--artifacts` is provided.
+Paid calls are never implicit: `sherpa run` refuses to start without `--real-model`. A run prints
+a structured result containing its answer, usage, and outcome. Screenshots and the compact
+`steps.jsonl` log are written only when `--artifacts` is provided.
 
 ## Files
 
-- `src/sherpa/agent.py`: bounded screenshot-plan-ground-act loop
-- `src/sherpa/models.py`: strict OpenRouter boundary
+- `src/sherpa/agent.py`: bounded progress, recovery, and hybrid-observation agent loop
+- `src/sherpa/models.py`: strict planner, grounder, and final-verifier OpenRouter boundary
 - `src/sherpa/eval.py`: point-in-box grounding evaluation
+- `src/sherpa/webvoyager.py`: offline validation and bounded live WebVoyager subset runner
+- `WEBVOYAGER_TESTS_AND_RESULTS.md`: consolidated goals, results, costs, and failure analysis
+- `WEBVOYAGER_RUN_HISTORY.md`: chronological benchmark run ledger
+- `eval/WEBVOYAGER_JUDGMENT_RUBRIC.md`: manual pass/fail/uncertain scoring rules
+- `eval/WEBVOYAGER_SOURCE.md`: benchmark subset provenance
 - `PROGRESS.md`: what is built, what is next, and known limits
 - `web_agent_build_plan.md`: longer-term architecture

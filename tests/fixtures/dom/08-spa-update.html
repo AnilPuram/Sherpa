@@ -1,0 +1,12 @@
+<!doctype html>
+<main>
+  <h1>Dashboard</h1>
+  <button id="toggle" aria-expanded="false">Show details</button>
+  <section id="details"></section>
+</main>
+<script>
+  toggle.onclick = () => {
+    toggle.setAttribute("aria-expanded", "true");
+    details.innerHTML = "<h2>New details</h2><p>The updated value is 42.</p>";
+  };
+</script>

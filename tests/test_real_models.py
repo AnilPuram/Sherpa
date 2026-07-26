@@ -22,7 +22,7 @@ async def test_real_models_complete_local_fixture(tmp_path: Path) -> None:
     fixture_url = (Path(__file__).parent / "fixtures/site/index.html").resolve().as_uri()
     viewport = Dimensions(width=settings.viewport_width, height=settings.viewport_height)
     async with Browser(viewport) as browser:
-        outcome = await Agent(
+        result = await Agent(
             browser,
             OpenRouterClient(settings),
             max_steps=6,
@@ -34,4 +34,4 @@ async def test_real_models_complete_local_fixture(tmp_path: Path) -> None:
         )
 
     log = (tmp_path / "steps.jsonl").read_text(encoding="utf-8")
-    assert outcome == "done", log
+    assert result.outcome == "done", log

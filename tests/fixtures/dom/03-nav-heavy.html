@@ -1,0 +1,16 @@
+<!doctype html>
+<header>
+  <nav>
+    <a href="#store">Store</a><a href="#products">Products</a>
+    <button id="menu" aria-expanded="false">Solutions</button>
+    <div id="mega" hidden><a href="#teams">Teams</a><a href="#enterprise">Enterprise</a></div>
+  </nav>
+</header>
+<main><h1>Product overview</h1><p>The main task fact is 42 units.</p></main>
+<footer><a href="#privacy">Privacy</a> Legal boilerplate</footer>
+<script>
+  menu.onclick = () => {
+    mega.hidden = !mega.hidden;
+    menu.setAttribute("aria-expanded", String(!mega.hidden));
+  };
+</script>

@@ -1,0 +1,12 @@
+<!doctype html>
+<main>
+  <h1>Results</h1>
+  <ul id="results"></ul>
+  <table><tr><th>Name</th><th>Value</th></tr><tr><td>Primary</td><td>42</td></tr></table>
+</main>
+<script>
+  results.innerHTML = Array.from(
+    {length: 250},
+    (_, index) => `<li><a href="#${index}">Result ${index}</a></li>`
+  ).join("");
+</script>
