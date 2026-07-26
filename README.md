@@ -130,4 +130,3 @@ a structured result containing its answer, usage, and outcome. Screenshots and t
 - `WEBVOYAGER_RUN_HISTORY.md`: chronological benchmark run ledger
 - `eval/WEBVOYAGER_JUDGMENT_RUBRIC.md`: manual pass/fail/uncertain scoring rules
 - `eval/WEBVOYAGER_SOURCE.md`: benchmark subset provenance
-- `PROGRESS.md`: what is built, what is next, and known limits
