@@ -1,14 +1,30 @@
 [project]
-name = "sherpa-web-agent"
+name = "sherpa-agent"
 version = "0.1.0"
-description = "A small, cost-aware vision web agent"
+description = "Hybrid vision web agent — planner + UI-TARS grounder + Playwright"
 readme = "README.md"
 requires-python = ">=3.12"
+authors = [{ name = "Anil Puram" }]
+keywords = ["web-agent", "playwright", "browser", "llm", "openrouter"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Topic :: Internet :: WWW/HTTP :: Browsers",
+]
 dependencies = [
     "httpx>=0.28,<1",
     "playwright>=1.54,<2",
     "pydantic>=2.11,<3",
 ]
+
+[project.urls]
+Homepage = "https://github.com/AnilPuram/Sherpa"
+Repository = "https://github.com/AnilPuram/Sherpa"
+Documentation = "https://github.com/AnilPuram/Sherpa#readme"
+Issues = "https://github.com/AnilPuram/Sherpa/issues"
+Changelog = "https://pypi.org/project/sherpa-agent/#history"
 
 [project.scripts]
 sherpa = "sherpa.cli:main"

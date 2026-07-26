@@ -367,7 +367,7 @@ wheels = [
 ]
 
 [[package]]
-name = "sherpa-web-agent"
+name = "sherpa-agent"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

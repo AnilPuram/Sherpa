@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -25,12 +26,12 @@ def settings() -> Settings:
 
 
 def test_qwen_planner_and_ui_tars_grounder_are_defaults(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     for name in ("SHERPA_PLANNER_MODEL", "SHERPA_GROUNDER_MODEL"):
         monkeypatch.delenv(name, raising=False)
 
-    configured = Settings.from_env()
+    configured = Settings.from_env(env_file=tmp_path / "missing.env")
 
     assert configured.planner_model == "qwen/qwen3.5-35b-a3b"
     assert configured.grounder_model == "bytedance/ui-tars-1.5-7b"

@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 
 import pytest
 
@@ -7,13 +8,13 @@ from sherpa.config import Settings
 
 
 def test_default_execution_budgets_are_twenty_and_five(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.delenv("SHERPA_MAX_STEPS", raising=False)
     monkeypatch.delenv("SHERPA_MAX_CORRECTIONS", raising=False)
     monkeypatch.delenv("SHERPA_PLANNER_REASONING_EFFORT", raising=False)
 
-    settings = Settings.from_env()
+    settings = Settings.from_env(env_file=tmp_path / "missing.env")
 
     assert settings.max_steps == 20
     assert settings.max_corrections == 5
@@ -21,13 +22,13 @@ def test_default_execution_budgets_are_twenty_and_five(
 
 
 def test_environment_execution_budgets_override_defaults(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("SHERPA_MAX_STEPS", "9")
     monkeypatch.setenv("SHERPA_MAX_CORRECTIONS", "4")
     monkeypatch.setenv("SHERPA_PLANNER_REASONING_EFFORT", "medium")
 
-    settings = Settings.from_env()
+    settings = Settings.from_env(env_file=tmp_path / "missing.env")
 
     assert settings.max_steps == 9
     assert settings.max_corrections == 4

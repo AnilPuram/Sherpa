@@ -1,38 +1,71 @@
 # Sherpa
 
-Sherpa is a small hybrid-observation web agent. A planner chooses the next action from a viewport
-screenshot plus two compact semantic channels: currently visible controls and main-content
-Markdown. A cheaper screenshot-only grounder returns coordinates, so DOM data never bypasses
-visual grounding.
+Sherpa is a hybrid web agent: a planner reads the page (screenshot + compact controls/content),
+a screenshot-only grounder picks click coordinates, and Playwright acts. Default models are
+Qwen3.5-35B-A3B (planner/verifier) and UI-TARS-1.5-7B (grounder) via OpenRouter.
 
-The default pair is the Qwen3.5-35B-A3B planner and UI-TARS-1.5-7B grounder. Both can be
-overridden through the environment. Qwen planning and verification use high reasoning effort by
-default; set `SHERPA_PLANNER_REASONING_EFFORT` to `none`, `minimal`, `low`, `medium`, `high`,
-`xhigh`, or `max` to change it.
+**PyPI:** [`sherpa-agent`](https://pypi.org/project/sherpa-agent/) · CLI command: `sherpa`
 
-The loop keeps a bounded eight-entry progress ledger, up to eight observed memories, and
-two milestone screenshots. It re-observes and re-plans after malformed model output,
-grounding/execution errors, repeated-action cycles, or stagnation. A separate same-planner visual
-and DOM verification pass must accept every `done` answer. `SHERPA_MAX_CORRECTIONS` defaults to
-five consecutive recovery attempts and `SHERPA_MAX_STEPS` defaults to twenty planner iterations.
-Because planner calls are stateless, every request replays the accumulated page-context history:
-the initial/full snapshot followed by every later semantic diff. A new DOM entry is not added when
-the page is unchanged. Controls are capped at 4k characters, main content at 8k, and each diff at
-3k. Raw content and form values are never written to run logs.
-
-## Setup
+## Install
 
 ```bash
-uv sync
-uv run playwright install chromium
-cp .env.example .env
+uv tool install sherpa-agent
+sherpa install          # Playwright Chromium (+ Linux system deps)
+sherpa init             # creates .env if missing
+# edit .env → OPENROUTER_API_KEY=
+sherpa "Confirm the page heading on https://example.com, then finish."
 ```
 
-Set `OPENROUTER_API_KEY` in your shell before a real-model command. Sherpa does not load `.env`
-implicitly:
+One-shot without a permanent install:
 
 ```bash
-set -a; source .env; set +a
+uvx --from sherpa-agent sherpa --help
+```
+
+`sherpa install` matches Browser Use (`uvx playwright install chromium`, with `--with-deps` on
+Linux). If Chromium is missing when you run a task, Sherpa installs it automatically.
+
+### Dev checkout
+
+```bash
+git clone https://github.com/AnilPuram/Sherpa.git
+cd Sherpa
+uv sync
+uv run sherpa install
+uv run sherpa init
+uv run sherpa "Confirm the page heading on https://example.com"
+```
+
+## Usage
+
+Config needs one key. Sherpa loads `.env` automatically (without overriding variables already set
+in your shell).
+
+```bash
+# Start URL can be in the task, or passed explicitly:
+sherpa "Confirm the page heading" --url https://example.com
+
+# Headless + machine-readable result:
+sherpa "…" --url https://example.com --headless --json
+```
+
+By default the browser is headed, steps print as they run, and artifacts go to
+`artifacts/runs/<timestamp>/`.
+
+### Models
+
+Defaults work out of the box. Override in `.env` (OpenRouter model ids):
+
+```bash
+SHERPA_PLANNER_MODEL=qwen/qwen3.5-35b-a3b
+SHERPA_GROUNDER_MODEL=bytedance/ui-tars-1.5-7b
+SHERPA_PLANNER_REASONING_EFFORT=high
+```
+
+Or one-shot:
+
+```bash
+SHERPA_PLANNER_MODEL=anthropic/claude-sonnet-4 sherpa "…" --url https://example.com
 ```
 
 ## Verify offline
@@ -43,98 +76,41 @@ uv run pytest
 uv run sherpa eval
 ```
 
-The default evaluation uses a no-network center-point grounder. Use `--real-model` only when
-you intend to make paid OpenRouter calls:
+Use `--real-model` only when you intend paid OpenRouter calls for grounding eval:
 
 ```bash
 uv run sherpa eval --real-model --output artifacts/eval.json
 ```
 
-The real-model local integration test is also opt-in:
+## Benchmarks / research
 
-```bash
-SHERPA_RUN_REAL_MODELS=1 uv run pytest tests/test_real_models.py
-```
-
-## WebVoyager smoke benchmark
-
-The checked-in subset contains 10 unchanged, read-only information-retrieval tasks from the
-official 643-task WebVoyager dataset. The default mode only validates local records, makes no
-network or model calls, and costs $0:
+WebVoyager subset tooling, judgment rubrics, run history, and the cross-agent bakeoff live under
+`eval/` and the docs below. Live WebVoyager still requires `--real-model` so offline scoring stays
+safe and free.
 
 ```bash
 uv run sherpa webvoyager --output artifacts/webvoyager-offline.json
+uv run sherpa webvoyager --real-model --max-cost-usd 1.00 \
+  --artifacts artifacts/webvoyager --output artifacts/webvoyager-live.json
 ```
 
-Live execution is explicit and sequential. By default it allows all HTTP methods (including site
-API POSTs needed by modern SPAs), writes one artifact directory per task, and stops before
-starting another task after the cost ceiling has been reached:
+See `WEBVOYAGER_TESTS_AND_RESULTS.md`, `WEBVOYAGER_RUN_HISTORY.md`, and
+`eval/bakeoff-round2-comparison.md`.
 
-```bash
-uv run sherpa webvoyager \
-  --real-model \
-  --max-cost-usd 1.00 \
-  --artifacts artifacts/webvoyager \
-  --output artifacts/webvoyager-live.json
-```
+## How it works
 
-Use `--read-only` to block browser requests other than GET, HEAD, and OPTIONS for safer demos.
-Unrestricted mode can still submit forms or mutate accounts if the agent chooses those actions.
-`--allow-write` is a deprecated no-op alias because unrestricted HTTP is already the default.
-Execution limits can be overridden with `--max-steps` and `--max-corrections`.
-
-After manually reviewing a completed run, apply a fresh judgments file without repeating paid work:
-
-```bash
-uv run sherpa webvoyager \
-  --score-report artifacts/webvoyager-live.json \
-  --judgments eval/webvoyager-new-judgments.json \
-  --output artifacts/webvoyager-scored.json
-```
-
-`completion_rate` measures verifier-accepted completion. Manual labels supplied with `--judgments`
-produce `success_rate`. `WEBVOYAGER_TESTS_AND_RESULTS.md` consolidates every offline check, paid
-run, repeated experiment, cost, judgment, and failure diagnosis. `WEBVOYAGER_RUN_HISTORY.md` is
-the compact chronological ledger. These small live-site subsets are not official WebVoyager
-scores.
-
-A cross-agent bakeoff (Sherpa vs Browser Use vs Magnitude on the same round-2 tasks) is summarized
-in `eval/bakeoff-round2-comparison.md`; runners live under `scripts/bakeoff/`.
-
-## Run
-
-The deterministic local task is:
-
-```bash
-uv run sherpa run \
-  "Type Sherpa in the Agent name input, click Complete, and finish when Success is visible." \
-  "file://$(pwd)/tests/fixtures/site/index.html" \
-  --real-model --artifacts artifacts/local
-```
-
-The opt-in public smoke task is read-only:
-
-```bash
-uv run sherpa run \
-  "Confirm the page heading says Example Domain, then finish without clicking anything." \
-  "https://example.com" \
-  --real-model --artifacts artifacts/public-smoke
-```
-
-Paid calls are never implicit: `sherpa run` refuses to start without `--real-model`. A run prints
-a structured result containing its answer, usage, and outcome. Screenshots and the compact
-`steps.jsonl` log are written only when `--artifacts` is provided.
+The loop keeps a bounded progress ledger and memories, recovers from grounding/execution errors,
+and requires a separate verifier to accept every `done` answer. Defaults: 20 planner steps, 5
+consecutive corrections, high planner reasoning effort. Details: `ARCHITECTURE.md`.
 
 ## Files
 
+- `src/sherpa/cli.py`: simple task CLI + research subcommands
+- `src/sherpa/install_browser.py`: `sherpa install` / auto Chromium setup
 - `src/sherpa/agent.py`: bounded progress, recovery, and hybrid-observation agent loop
-- `src/sherpa/models.py`: strict planner, grounder, and final-verifier OpenRouter boundary
+- `src/sherpa/models.py`: planner, grounder, and verifier OpenRouter boundary
 - `src/sherpa/eval.py`: point-in-box grounding evaluation
 - `src/sherpa/webvoyager.py`: offline validation and bounded live WebVoyager subset runner
-- `ARCHITECTURE.md`: complete agent flow and component diagrams
-- `WEBVOYAGER_TESTS_AND_RESULTS.md`: consolidated goals, results, costs, and failure analysis
-- `WEBVOYAGER_RUN_HISTORY.md`: chronological benchmark run ledger
-- `eval/bakeoff-round2-comparison.md`: Sherpa vs Browser Use vs Magnitude round-2 bakeoff
+- `ARCHITECTURE.md`: agent flow and component diagrams
+- `eval/bakeoff-round2-comparison.md`: Sherpa vs Browser Use vs Magnitude bakeoff
 - `scripts/bakeoff/`: external-agent bakeoff runners
-- `eval/WEBVOYAGER_JUDGMENT_RUBRIC.md`: manual pass/fail/uncertain scoring rules
-- `eval/WEBVOYAGER_SOURCE.md`: benchmark subset provenance

@@ -1,4 +1,5 @@
 import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol
 from urllib.parse import urlsplit
@@ -71,6 +72,7 @@ class Agent:
         max_corrections: int = 3,
         run_log: RunLog | None = None,
         screenshot_dir: Path | None = None,
+        on_step: Callable[[StepResult], None] | None = None,
     ) -> None:
         self.browser = browser
         self.models = models
@@ -78,6 +80,7 @@ class Agent:
         self.max_corrections = max_corrections
         self.run_log = run_log or RunLog(None)
         self.screenshot_dir = screenshot_dir
+        self.on_step = on_step
 
     async def run(self, task: str, start_url: str) -> AgentRunResult:
         await self.browser.navigate(start_url)
@@ -96,6 +99,8 @@ class Agent:
         def record(result: StepResult) -> None:
             nonlocal total_usage, total_latency_ms, recorded_steps
             self.run_log.append(result)
+            if self.on_step is not None:
+                self.on_step(result)
             total_usage = _add_usage(total_usage, result.usage)
             total_latency_ms += result.latency_ms
             recorded_steps += 1

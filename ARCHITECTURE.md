@@ -13,6 +13,15 @@ Default models: Qwen3.5-35B-A3B (planner / verifier) and UI-TARS-1.5-7B (grounde
 configurable. The control loop is finite: at most \(S\) planner iterations and \(C\) consecutive
 corrections (defaults \(S=20\), \(C=5\)).
 
+## Usage
+
+Published on PyPI as [`sherpa-agent`](https://pypi.org/project/sherpa-agent/) (CLI: `sherpa`).
+Install like Browser Use: `uv tool install sherpa-agent`, then `sherpa install` (Playwright
+Chromium) and `sherpa init` (`.env` with `OPENROUTER_API_KEY`). Change planner/grounder via
+`SHERPA_PLANNER_MODEL` / `SHERPA_GROUNDER_MODEL`. Day-to-day: `sherpa "task…"`. The start URL may
+appear in the task text or via `--url`. Research commands (`eval`, `webvoyager`) remain separate
+subcommands. See the README.
+
 ## Design thesis
 
 Browser agents fail in two complementary ways: (1) plans that ignore what is actually visible, and

@@ -1,5 +1,8 @@
 import os
 from dataclasses import dataclass
+from pathlib import Path
+
+from sherpa.envfile import load_env_file
 
 
 @dataclass(frozen=True)
@@ -35,9 +38,10 @@ class Settings:
             raise ValueError("planner_reasoning_effort is invalid")
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls, *, env_file: Path | None = None) -> "Settings":
+        load_env_file(env_file)
         return cls(
-            api_key=os.getenv("OPENROUTER_API_KEY"),
+            api_key=os.getenv("OPENROUTER_API_KEY") or None,
             planner_model=os.getenv("SHERPA_PLANNER_MODEL", "qwen/qwen3.5-35b-a3b"),
             grounder_model=os.getenv("SHERPA_GROUNDER_MODEL", "bytedance/ui-tars-1.5-7b"),
             planner_reasoning_effort=os.getenv(
@@ -50,6 +54,13 @@ class Settings:
             viewport_width=int(os.getenv("SHERPA_VIEWPORT_WIDTH", "1280")),
             viewport_height=int(os.getenv("SHERPA_VIEWPORT_HEIGHT", "720")),
         )
+
+    def require_api_key(self) -> str:
+        if not self.api_key:
+            raise SystemExit(
+                "Set OPENROUTER_API_KEY in .env (see .env.example), then retry."
+            )
+        return self.api_key
 
     def model_prices(self, model: str) -> tuple[float, float]:
         if model == self.planner_model:
