@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sherpa.local/bakeoff-result.schema.json",
+  "title": "BakeoffResult",
+  "type": "object",
+  "required": ["id", "agent", "model", "answer", "outcome", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "description": "WebVoyager task id" },
+    "agent": {
+      "type": "string",
+      "enum": ["sherpa", "browser-use", "magnitude"]
+    },
+    "model": { "type": "string" },
+    "answer": { "type": ["string", "null"] },
+    "outcome": {
+      "type": "string",
+      "enum": ["done", "failed", "max_steps", "skipped", "error"]
+    },
+    "steps": { "type": "integer", "minimum": 0 },
+    "cost_usd": { "type": ["number", "null"], "minimum": 0 },
+    "error": { "type": ["string", "null"] },
+    "track": {
+      "type": "string",
+      "description": "equal-planner or magnitude-recommended-vl",
+      "default": "equal-planner"
+    },
+    "artifacts": { "type": ["string", "null"] }
+  }
+}

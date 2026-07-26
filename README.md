@@ -98,6 +98,9 @@ run, repeated experiment, cost, judgment, and failure diagnosis. `WEBVOYAGER_RUN
 the compact chronological ledger. These small live-site subsets are not official WebVoyager
 scores.
 
+A cross-agent bakeoff (Sherpa vs Browser Use vs Magnitude on the same round-2 tasks) is summarized
+in `eval/bakeoff-round2-comparison.md`; runners live under `scripts/bakeoff/`.
+
 ## Run
 
 The deterministic local task is:
@@ -131,5 +134,7 @@ a structured result containing its answer, usage, and outcome. Screenshots and t
 - `ARCHITECTURE.md`: complete agent flow and component diagrams
 - `WEBVOYAGER_TESTS_AND_RESULTS.md`: consolidated goals, results, costs, and failure analysis
 - `WEBVOYAGER_RUN_HISTORY.md`: chronological benchmark run ledger
+- `eval/bakeoff-round2-comparison.md`: Sherpa vs Browser Use vs Magnitude round-2 bakeoff
+- `scripts/bakeoff/`: external-agent bakeoff runners
 - `eval/WEBVOYAGER_JUDGMENT_RUBRIC.md`: manual pass/fail/uncertain scoring rules
 - `eval/WEBVOYAGER_SOURCE.md`: benchmark subset provenance

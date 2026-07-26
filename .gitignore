@@ -1,8 +1,9 @@
+*.pyc
 .env
-.venv/
-__pycache__/
 .pytest_cache/
 .ruff_cache/
-*.pyc
+.venv/
+__pycache__/
 artifacts/
 dist/
+node_modules/

@@ -130,6 +130,24 @@ Goals, methodology, repeated experiments, and failure analysis are consolidated 
       was scored pass on answer quality.
     - Scored artifact: `artifacts/unrestricted-agent-fixes-round2-scored-report.json`
     - Judgments: `eval/unrestricted-agent-fixes-round2-judgments.json`
+27. **Cross-agent bakeoff — Browser Use — Qwen3.5 via OpenRouter — max 20 steps — unrestricted**
+    - Strict success: 60% (6/10); same task set as round 2
+    - Model: `qwen/qwen3.5-35b-a3b` (DOM-index actuation, not pixel grounding)
+    - Passed: Apple--12, ArXiv--2, ArXiv--17, BBC News--6, ESPN--11, GitHub--3
+    - Failed: Apple--6, BBC News--5, Coursera--1, GitHub--12
+    - Evidence: `artifacts/bakeoff-browser-use-round2/`,
+      `eval/bakeoff-browser-use-round2-judgments.json`
+28. **Cross-agent bakeoff — Magnitude — Qwen3.5 text (equal-planner) — 240s/task**
+    - Strict success: 10% (1/10); Coursera--1 only
+    - Mostly `max_steps` / empty answers; pixel path without a VL model
+    - Evidence: `artifacts/bakeoff-magnitude-round2/`,
+      `eval/bakeoff-magnitude-round2-judgments.json`
+29. **Cross-agent bakeoff — Magnitude — Qwen2.5-VL-72B — 90s/task**
+    - Strict success: 10% (1/10); BBC News--6 only; wall time ~9.5 minutes
+    - VL improved over text-Qwen clicks somewhat but did not match Browser Use / Sherpa
+    - Evidence: `artifacts/bakeoff-magnitude-qwen-vl-round2/`,
+      `eval/bakeoff-magnitude-qwen-vl-round2-judgments.json`
+    - Summary table and analysis: `eval/bakeoff-round2-comparison.md`
 
 The consolidated report records the 12-run comparison and acceptance decisions. None of the
 three levers met the acceptance gate, so their dormant implementation was removed while retaining

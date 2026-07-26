@@ -28,6 +28,14 @@ Browser agents fail in two complementary ways: (1) plans that ignore what is act
 The grounder is intentionally information-poor relative to the planner: semantic structure informs
 *what* to do; pixels alone determine *where*.
 
+### External bakeoff note
+
+On the checked-in 10-task WebVoyager round-2 subset, Browser Use (DOM-index actuation) tied
+Sherpa’s 60% strict baseline when both used Qwen3.5-class planning. Magnitude’s pure vision path
+scored 10% with text Qwen and with Qwen2.5-VL under tight per-task timeouts. Conclusion for this
+suite: vision-only actuation is not automatically better than DOM-index or hybrid designs when the
+pixel model is weak; see `eval/bakeoff-round2-comparison.md`.
+
 ## Control loop
 
 ```mermaid

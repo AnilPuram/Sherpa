@@ -99,6 +99,32 @@ runs 23–26; ledger runs 11–22 are the repeated accuracy experiments summariz
   rejected during the run; that gate was narrowed afterward. ArXiv--17 and BBC News--5 remained
   hard failures.
 
+## Cross-agent bakeoff (Browser Use vs Magnitude vs Sherpa)
+
+On the same `eval/webvoyager-round2.jsonl` tasks and judgment rubric, an external bakeoff compared
+Sherpa’s prior unrestricted 60% baseline to Browser Use and Magnitude under an equal-planner
+constraint where possible. Full table: `eval/bakeoff-round2-comparison.md`. Harness:
+`scripts/bakeoff/`.
+
+| Agent | Configuration | Strict |
+|---|---|---:|
+| Sherpa | Prior unrestricted fixes (Qwen3.5 + UI-TARS) | 6/10 (60%) |
+| Browser Use | `qwen/qwen3.5-35b-a3b`, DOM-index clicks | 6/10 (60%) |
+| Magnitude | Same text Qwen as act/click model, 240s/task | 1/10 (10%) |
+| Magnitude | `qwen/qwen2.5-vl-72b-instruct`, 90s/task | 1/10 (10%) |
+
+Findings:
+
+- Browser Use tied Sherpa at 60% with the same Qwen planner family because it actuates via
+  **element indices**, not pixels. Failures only partly overlapped Sherpa’s (shared: BBC News--5,
+  GitHub--12).
+- Magnitude’s vision-first path was **not** stronger here. Text Qwen cannot click by coordinates
+  reliably; Qwen2.5-VL under tight timeouts still scored 1/10. Vision architecture helps when the
+  grounder model is strong and/or DOM is unusable — it is not a free accuracy win on this IR
+  subset.
+- Sherpa’s hybrid (compact DOM for planning + screenshot-only UI-TARS grounding) remains
+  competitive with DOM-first Browser Use under these constraints.
+
 ## Agentic development runs
 
 Four unscored tuning runs preceded the final agentic release. They exposed a Qwen target-field
