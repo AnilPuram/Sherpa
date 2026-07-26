@@ -131,4 +131,3 @@ a structured result containing its answer, usage, and outcome. Screenshots and t
 - `eval/WEBVOYAGER_JUDGMENT_RUBRIC.md`: manual pass/fail/uncertain scoring rules
 - `eval/WEBVOYAGER_SOURCE.md`: benchmark subset provenance
 - `PROGRESS.md`: what is built, what is next, and known limits
-- `web_agent_build_plan.md`: longer-term architecture
