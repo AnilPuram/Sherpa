@@ -12,7 +12,15 @@ from sherpa.browser import (
     _dom_change,
     _dom_snapshot,
 )
-from sherpa.types import Action, Dimensions, DomNode, DomSnapshot, PlannerAction
+from sherpa.coordinates import image_to_viewport, require_in_viewport
+from sherpa.types import (
+    Action,
+    Dimensions,
+    DomNode,
+    DomSnapshot,
+    GroundedPoint,
+    PlannerAction,
+)
 
 DOM_FIXTURES = Path(__file__).parent / "fixtures" / "dom"
 
@@ -241,3 +249,23 @@ async def test_compact_v2_reduces_fixture_context_by_at_least_forty_percent() ->
             reductions.append(1 - compact_chars / legacy_chars)
 
     assert statistics.median(reductions) >= 0.40
+
+
+def test_image_to_viewport_scales_and_rejects_oob() -> None:
+    point = image_to_viewport(
+        GroundedPoint(x=100, y=50),
+        Dimensions(width=200, height=100),
+        Dimensions(width=1000, height=500),
+    )
+    assert point == GroundedPoint(x=500, y=250)
+    with pytest.raises(ValueError, match="outside the image"):
+        image_to_viewport(
+            GroundedPoint(x=201, y=50),
+            Dimensions(width=200, height=100),
+            Dimensions(width=1000, height=500),
+        )
+    with pytest.raises(ValueError, match="outside the viewport"):
+        require_in_viewport(
+            GroundedPoint(x=1000, y=500),
+            Dimensions(width=1000, height=500),
+        )
