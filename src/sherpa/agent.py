@@ -1,5 +1,7 @@
+import re
 from pathlib import Path
 from typing import Protocol
+from urllib.parse import urlsplit
 
 from sherpa.browser import Browser
 from sherpa.coordinates import image_to_viewport, require_in_viewport
@@ -89,6 +91,7 @@ class Agent:
         total_usage = ModelUsage()
         total_latency_ms = 0
         recorded_steps = 0
+        blocked_seen = 0
 
         def record(result: StepResult) -> None:
             nonlocal total_usage, total_latency_ms, recorded_steps
@@ -182,43 +185,65 @@ class Agent:
                     continue
 
                 if action.action is Action.DONE:
-                    verification_result = await self.models.verify(
-                        task=task,
-                        proposed_answer=action.value,
-                        image=image,
-                        image_size=image_size,
-                        progress=progress,
-                        memories=memories,
-                        milestone_images=milestone_images,
-                        dom=before.dom,
-                        dom_change=before.change,
-                    )
-                    if not isinstance(verification_result.value, VerificationResult):
-                        raise TypeError("verifier returned the wrong result type")
-                    verdict = verification_result.value
-                    usage = _add_usage(planned.usage, verification_result.usage)
-                    latency_ms = planned.latency_ms + verification_result.latency_ms
-                    model = _model_names(planned, verification_result)
-                    if verdict.accepted:
-                        answer = verdict.corrected_answer or action.value
-                        record(
-                            StepResult(
-                                step=step,
-                                action=action.action,
-                                model=model,
-                                latency_ms=latency_ms,
-                                usage=usage,
-                                planner_input_tokens=planned.usage.input_tokens,
-                                **_protocol_fields(planned, verification_result),
-                                outcome="done",
-                                **_observation_fields(
-                                    before, before, context_chars=dom_history_chars
-                                ),
-                                verifier_reason=verdict.reason,
-                                **_progress_fields(action),
-                            )
+                    gate_missing = _enumeration_gate(task, action.value)
+                    if gate_missing is not None:
+                        verdict = VerificationResult(
+                            accepted=False,
+                            reason="Answer fails enumeration requirements.",
+                            missing_evidence=[gate_missing],
                         )
-                        return finish("done", answer)
+                        usage = planned.usage
+                        latency_ms = planned.latency_ms
+                        model = planned.model
+                        protocol = _protocol_fields(planned)
+                    else:
+                        verification_result = await self.models.verify(
+                            task=task,
+                            proposed_answer=action.value,
+                            image=image,
+                            image_size=image_size,
+                            progress=progress,
+                            memories=memories,
+                            milestone_images=milestone_images,
+                            dom=before.dom,
+                            dom_change=before.change,
+                        )
+                        if not isinstance(verification_result.value, VerificationResult):
+                            raise TypeError("verifier returned the wrong result type")
+                        verdict = verification_result.value
+                        usage = _add_usage(planned.usage, verification_result.usage)
+                        latency_ms = planned.latency_ms + verification_result.latency_ms
+                        model = _model_names(planned, verification_result)
+                        protocol = _protocol_fields(planned, verification_result)
+                        if verdict.accepted:
+                            answer = verdict.corrected_answer or action.value
+                            post_missing = _enumeration_gate(task, answer)
+                            if post_missing is not None:
+                                verdict = VerificationResult(
+                                    accepted=False,
+                                    reason="Answer fails enumeration requirements.",
+                                    missing_evidence=[post_missing],
+                                )
+                            else:
+                                record(
+                                    StepResult(
+                                        step=step,
+                                        action=action.action,
+                                        model=model,
+                                        latency_ms=latency_ms,
+                                        usage=usage,
+                                        planner_input_tokens=planned.usage.input_tokens,
+                                        **protocol,
+                                        outcome="done",
+                                        **_observation_fields(
+                                            before, before, context_chars=dom_history_chars
+                                        ),
+                                        verifier_reason=verdict.reason,
+                                        missing_evidence=list(verdict.missing_evidence),
+                                        **_progress_fields(action),
+                                    )
+                                )
+                                return finish("done", answer)
 
                     record(
                         StepResult(
@@ -228,7 +253,7 @@ class Agent:
                             latency_ms=latency_ms,
                             usage=usage,
                             planner_input_tokens=planned.usage.input_tokens,
-                            **_protocol_fields(planned, verification_result),
+                            **protocol,
                             outcome="verification_rejected",
                             error_category="verification",
                             error_message=", ".join(verdict.missing_evidence) or verdict.reason,
@@ -236,6 +261,7 @@ class Agent:
                                 before, before, context_chars=dom_history_chars
                             ),
                             verifier_reason=verdict.reason,
+                            missing_evidence=list(verdict.missing_evidence),
                             **_progress_fields(action),
                         )
                     )
@@ -254,6 +280,8 @@ class Agent:
                     feedback = (
                         f"Final answer rejected: {verdict.reason}"
                         + (f" Missing evidence: {missing}." if missing else "")
+                        + " If sufficient evidence is already visible, finish from that "
+                        "evidence rather than exploring further."
                     )
                     if corrections >= self.max_corrections:
                         return finish("correction_limit")
@@ -363,11 +391,22 @@ class Agent:
                     _progress_entry(action, step, outcome, before, after)
                 )
                 progress = progress[-8:]
+                blocked_requests = getattr(self.browser, "blocked_requests", [])
+                blocked_feedback = _blocked_request_feedback(
+                    blocked_requests, blocked_seen
+                )
+                if blocked_feedback is not None:
+                    blocked_seen = len(blocked_requests)
+                preview_feedback = _preview_error_feedback(after)
                 if not changed:
                     corrections += 1
                     feedback = (
-                        "The last action caused no visible page change. Reassess the target "
-                        "or choose a different action."
+                        blocked_feedback
+                        or preview_feedback
+                        or (
+                            "The last action caused no visible page change. Reassess the "
+                            "target or choose a different action."
+                        )
                     )
                     if corrections >= self.max_corrections:
                         return finish("correction_limit")
@@ -376,7 +415,7 @@ class Agent:
                     milestone_images.append(after_image)
                     milestone_images = milestone_images[-2:]
                 corrections = 0
-                feedback = None
+                feedback = blocked_feedback or preview_feedback
             except Exception as exc:
                 corrections += 1
                 after = await _refresh_observation(self.browser, before)
@@ -513,6 +552,9 @@ def _stagnation_reason(
     repeated_state = sum(_entry_state(item) == _observation_state(current) for item in attempted)
     if repeated_state >= 2 and matching:
         return "cycle", "This action has already been tried from the same screenshot state."
+    search_stall = _search_scroll_stagnation(action, attempted, current)
+    if search_stall is not None:
+        return search_stall
     if action.action is Action.SCROLL:
         trailing = attempted[-3:]
         if len(trailing) == 3 and all(
@@ -543,6 +585,172 @@ def _stagnation_reason(
     ):
         return "stagnation", "The same next subgoal has repeated without visible progress."
     return None
+
+
+def _canonical_url(url: str | None) -> str:
+    if not url:
+        return ""
+    parts = urlsplit(url)
+    return f"{parts.scheme}://{parts.netloc}{parts.path}"
+
+
+def _is_search_exploration(action: Action | None, target: str | None = None) -> bool:
+    if action in {Action.SCROLL, Action.SCROLL_HOME, Action.SCROLL_END}:
+        return True
+    if action is Action.CLICK:
+        return bool(
+            re.search(r"\b(page|pagination|next|previous)\b", _normalize(target))
+            or re.fullmatch(r"\d+", _normalize(target))
+        )
+    return False
+
+
+def _search_scroll_stagnation(
+    action: PlannerAction,
+    attempted: list[ProgressEntry],
+    current: BrowserObservation,
+) -> tuple[str, str] | None:
+    if not _is_search_exploration(action.action, action.element_description):
+        return None
+    window = attempted[-3:]
+    if len(window) < 3:
+        return None
+    if not all(
+        _is_search_exploration(item.action, item.target) and not item.completed_subgoal
+        for item in window
+    ):
+        return None
+    urls = {_canonical_url(item.url_after or item.url_before) for item in window}
+    current_url = _canonical_url(current.url)
+    if len(urls) != 1 or current_url not in urls or not current_url:
+        return None
+    if any(item.action is Action.TYPE for item in attempted[-4:]):
+        return None
+    return (
+        "stagnation",
+        "Same URL with repeated scrolling/pagination and no query change. "
+        "Change the query, filters, or route; do not keep scrolling the same results.",
+    )
+
+
+def _enumeration_gate(task: str, answer: str | None) -> str | None:
+    """Reject answers that omit an explicitly requested item count or under-list a claimed count."""
+    required = _required_enumerated_items(task)
+    items = _distinct_answer_items(answer or "")
+    if required is not None and len(items) < required:
+        return (
+            f"Enumerate at least {required} distinct visible items in the answer "
+            f"(found {len(items)})."
+        )
+    claimed = _claimed_enumerated_count(answer or "")
+    if claimed is not None and len(items) < claimed:
+        return (
+            f"Answer claims {claimed} items but only enumerates {len(items)} distinct items."
+        )
+    return None
+
+
+def _required_enumerated_items(task: str) -> int | None:
+    """Only enforce a minimum when the task states an explicit item cardinality."""
+    lower = task.lower()
+    patterns = (
+        r"(?:answer|list|name|give|provide|return)\s+(\d+)\b",
+        r"\b(\d+)\s+of\s+them\b",
+        r"\bat least\s+(\d+)\b",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, lower)
+        if match:
+            return int(match.group(1))
+    return None
+
+
+def _claimed_enumerated_count(answer: str) -> int | None:
+    """Detect 'N ...: a, b, c' claims within a single clause, not separate totals."""
+    for clause in re.split(r"[.\n]", answer):
+        match = re.search(r"\b(\d+)\s+(?:\w+\s+){0,4}\w+\s*:\s*\S", clause.lower())
+        if match:
+            return int(match.group(1))
+    return None
+
+
+_CLAIM_PREFIX_RE = re.compile(
+    r"^(?:there are|there is|are|is|found)?\s*\d+\s+(?:\w+\s+){0,4}\w+\s*:\s*",
+    re.IGNORECASE,
+)
+
+
+def _distinct_answer_items(answer: str) -> list[str]:
+    text = answer.strip()
+    if not text:
+        return []
+    numbered = re.findall(r"(?:^|\n)\s*(?:\d+[\).]|[-*])\s*(.+)", text)
+    if len(numbered) >= 2:
+        return _unique_items(numbered)
+    parts = re.split(r"\n|;|,(?!\d)|(?:\s+and\s+)|(?:\s+\+\s+)", text)
+    cleaned: list[str] = []
+    for part in parts:
+        item = part.strip(" .")
+        item = _CLAIM_PREFIX_RE.sub("", item).strip(" .:")
+        if len(item) >= 3 and not re.fullmatch(r"\d+", item):
+            cleaned.append(item)
+    return _unique_items(cleaned)
+
+
+def _unique_items(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    unique: list[str] = []
+    for item in items:
+        key = _normalize(item)
+        if key and key not in seen:
+            seen.add(key)
+            unique.append(item.strip())
+    return unique
+
+
+def _blocked_request_feedback(
+    blocked_requests: list[dict[str, str]],
+    seen: int,
+) -> str | None:
+    if len(blocked_requests) <= seen:
+        return None
+    newest = blocked_requests[seen:]
+    sample = newest[0]
+    host = urlsplit(sample.get("url", "")).netloc or "unknown-host"
+    method = sample.get("method", "POST")
+    return (
+        f"Read-only policy blocked {len(newest)} write request(s) "
+        f"(e.g. {method} {host}). Use already-visible content or a GET navigation; do not "
+        "retry the blocked action."
+    )
+
+
+_LOAD_FAILURE_RE = re.compile(
+    r"(?:unable|failed|could not|couldn't)\s+to\s+load|"
+    r"failed\s+to\s+load|"
+    r"error\s+loading|"
+    r"something went wrong|"
+    r"please (?:close and )?try again|"
+    r"try again later",
+    re.IGNORECASE,
+)
+
+
+def _preview_error_feedback(observation: BrowserObservation) -> str | None:
+    text = " ".join(
+        part
+        for part in (
+            observation.dom.content_markdown,
+            observation.dom.controls_text,
+        )
+        if part
+    )
+    if not _LOAD_FAILURE_RE.search(text):
+        return None
+    return (
+        "A detail view or overlay failed to load. Prefer answering from already-visible "
+        "content when it is sufficient, or choose a different target."
+    )
 
 
 def _contains_memory(memories: list[str], candidate: str) -> bool:

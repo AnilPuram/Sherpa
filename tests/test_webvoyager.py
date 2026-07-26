@@ -149,19 +149,19 @@ async def test_live_mode_aggregates_results_and_stops_before_next_task(tmp_path:
     assert report["cost_usd"] == 1.2
     assert report["stopped_for_cost"] is True
     assert report["cost_overshoot_usd"] == pytest.approx(0.2)
-    assert report["access_policy"] == "http_read_only"
+    assert report["access_policy"] == "unrestricted"
     assert report["dom_context_modes"] == {"full": 2}
     assert report["planner_input_tokens_per_step_mean"] == 10
     assert report["model_attempts"] == 6
     assert report["protocol_retry_steps"] == 2
     assert report["protocol_error_counts"] == {"invalid_json": 2}
     assert report["finish_reason_counts"] == {"stop": 2}
-    assert all(kwargs["read_only"] is True for kwargs in FakeBrowser.created_kwargs)
+    assert all(kwargs["read_only"] is False for kwargs in FakeBrowser.created_kwargs)
     assert (tmp_path / "artifacts" / "Site--0" / "result.json").exists()
 
 
 @pytest.mark.asyncio
-async def test_allow_write_constructs_unrestricted_browser(tmp_path: Path) -> None:
+async def test_read_only_constructs_restricted_browser(tmp_path: Path) -> None:
     FakeBrowser.created_kwargs.clear()
     report = await evaluate_webvoyager(
         write_manifest(tmp_path / "tasks.jsonl", count=1),
@@ -169,13 +169,13 @@ async def test_allow_write_constructs_unrestricted_browser(tmp_path: Path) -> No
         settings=Settings(api_key=None, planner_model="planner", grounder_model="grounder"),
         models=DoneModels(),
         browser_factory=FakeBrowser,  # type: ignore[arg-type]
-        allow_write=True,
+        allow_write=False,
         max_steps=7,
         max_corrections=2,
     )
 
-    assert FakeBrowser.created_kwargs[0]["read_only"] is False
-    assert report["access_policy"] == "unrestricted"
+    assert FakeBrowser.created_kwargs[0]["read_only"] is True
+    assert report["access_policy"] == "http_read_only"
     assert report["max_steps"] == 7
     assert report["max_corrections"] == 2
 

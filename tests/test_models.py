@@ -592,7 +592,7 @@ def test_gpt5_payload_disables_reasoning_for_atomic_planning() -> None:
     assert "temperature" not in payload
 
 
-def test_qwen35_payload_disables_reasoning_for_atomic_planning() -> None:
+def test_qwen35_payload_enables_configured_reasoning() -> None:
     configured = Settings(
         api_key=None,
         planner_model="qwen/qwen3.5-35b-a3b",
@@ -608,8 +608,9 @@ def test_qwen35_payload_disables_reasoning_for_atomic_planning() -> None:
         max_tokens=512,
     )
 
-    assert payload["reasoning"] == {"effort": "none", "exclude": True}
+    assert payload["reasoning"] == {"effort": "high", "exclude": True}
     assert payload["temperature"] == 0
+    assert client._planner_max_tokens(512) == 4096  # noqa: SLF001
 
 
 def test_claude_sonnet5_payload_disables_reasoning_and_lowers_verbosity() -> None:
@@ -670,3 +671,12 @@ def test_partial_markdown_fence_and_trailing_content_are_rejected() -> None:
         )
 
     assert raised.value.protocol_error_category == "trailing_content"
+
+
+def test_planner_and_verifier_prompts_cover_evidence_and_enumeration() -> None:
+    from sherpa.models import PLANNER_PROMPT, VERIFIER_PROMPT
+
+    assert "already shows the requested answer" in PLANNER_PROMPT
+    assert "distinct supported items" in VERIFIER_PROMPT
+    assert "Labels and" in VERIFIER_PROMPT
+    assert "section titles" in VERIFIER_PROMPT

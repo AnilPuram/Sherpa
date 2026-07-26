@@ -116,7 +116,7 @@ async def evaluate_webvoyager(
     verdicts: Mapping[str, Verdict] | None = None,
     models: Models | None = None,
     browser_factory: BrowserFactory = Browser,
-    allow_write: bool = False,
+    allow_write: bool = True,
     max_steps: int | None = None,
     max_corrections: int | None = None,
 ) -> dict[str, Any]:
@@ -140,6 +140,7 @@ async def evaluate_webvoyager(
             access_policy=access_policy,
             max_steps=effective_steps,
             max_corrections=effective_corrections,
+            planner_reasoning_effort=active_settings.planner_reasoning_effort,
         )
         _write_report(report, output)
         return report
@@ -209,6 +210,7 @@ async def evaluate_webvoyager(
         access_policy=access_policy,
         max_steps=effective_steps,
         max_corrections=effective_corrections,
+        planner_reasoning_effort=active_settings.planner_reasoning_effort,
     )
     _write_report(report, output)
     return report
@@ -271,6 +273,7 @@ def _summarize(
     access_policy: AccessPolicy = "http_read_only",
     max_steps: int = 20,
     max_corrections: int = 5,
+    planner_reasoning_effort: str = "high",
 ) -> dict[str, Any]:
     attempted = len(results)
     completed = sum(result.outcome == "done" for result in results)
@@ -357,6 +360,7 @@ def _summarize(
         "finish_reason_counts": finish_reason_counts,
         "planner_model": planner_model,
         "grounder_model": grounder_model,
+        "planner_reasoning_effort": planner_reasoning_effort,
         "results": [result.model_dump(mode="json") for result in results],
     }
 

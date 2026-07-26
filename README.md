@@ -6,7 +6,9 @@ Markdown. A cheaper screenshot-only grounder returns coordinates, so DOM data ne
 visual grounding.
 
 The default pair is the Qwen3.5-35B-A3B planner and UI-TARS-1.5-7B grounder. Both can be
-overridden through the environment.
+overridden through the environment. Qwen planning and verification use high reasoning effort by
+default; set `SHERPA_PLANNER_REASONING_EFFORT` to `none`, `minimal`, `low`, `medium`, `high`,
+`xhigh`, or `max` to change it.
 
 The loop keeps a bounded eight-entry progress ledger, up to eight observed memories, and
 two milestone screenshots. It re-observes and re-plans after malformed model output,
@@ -64,9 +66,9 @@ network or model calls, and costs $0:
 uv run sherpa webvoyager --output artifacts/webvoyager-offline.json
 ```
 
-Live execution is explicit and sequential. It blocks browser requests other than GET, HEAD, and
-OPTIONS, writes one artifact directory per task, and stops before starting another task after the
-cost ceiling has been reached:
+Live execution is explicit and sequential. By default it allows all HTTP methods (including site
+API POSTs needed by modern SPAs), writes one artifact directory per task, and stops before
+starting another task after the cost ceiling has been reached:
 
 ```bash
 uv run sherpa webvoyager \
@@ -76,10 +78,10 @@ uv run sherpa webvoyager \
   --output artifacts/webvoyager-live.json
 ```
 
-The default WebVoyager policy blocks non-safe HTTP methods but can still click, type, and change
-client-side state. `--allow-write` removes that network restriction and can submit forms or mutate
-accounts, so use it only for tasks that explicitly require those effects. Execution limits can be
-overridden with `--max-steps` and `--max-corrections`.
+Use `--read-only` to block browser requests other than GET, HEAD, and OPTIONS for safer demos.
+Unrestricted mode can still submit forms or mutate accounts if the agent chooses those actions.
+`--allow-write` is a deprecated no-op alias because unrestricted HTTP is already the default.
+Execution limits can be overridden with `--max-steps` and `--max-corrections`.
 
 After manually reviewing a completed run, apply a fresh judgments file without repeating paid work:
 
@@ -126,6 +128,7 @@ a structured result containing its answer, usage, and outcome. Screenshots and t
 - `src/sherpa/models.py`: strict planner, grounder, and final-verifier OpenRouter boundary
 - `src/sherpa/eval.py`: point-in-box grounding evaluation
 - `src/sherpa/webvoyager.py`: offline validation and bounded live WebVoyager subset runner
+- `ARCHITECTURE.md`: complete agent flow and component diagrams
 - `WEBVOYAGER_TESTS_AND_RESULTS.md`: consolidated goals, results, costs, and failure analysis
 - `WEBVOYAGER_RUN_HISTORY.md`: chronological benchmark run ledger
 - `eval/WEBVOYAGER_JUDGMENT_RUBRIC.md`: manual pass/fail/uncertain scoring rules

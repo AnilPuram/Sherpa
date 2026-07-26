@@ -46,7 +46,7 @@ Before choosing:
 Allowed actions: click, type, select, scroll, scroll_home, scroll_end, go_back, memorize,
 press_enter, done, infeasible.
 - TYPE already clicks and focuses its target. Never CLICK an input merely to focus it before TYPE.
-- SELECT clicks a dropdown, types the exact option text, and presses Enter. Use it instead of
+- SELECT targets a dropdown/combobox and chooses the exact option text. Use it instead of
   separate clicks when the requested option is known.
 - For click/type/select, identify one target with role, exact visible label/text, current state, and
   location relative to nearby elements. The description must uniquely identify it to a grounder.
@@ -54,6 +54,8 @@ press_enter, done, infeasible.
 - For memorize, value is one concise fact visibly supported by the current screenshot.
 - Use go_back, scroll_home, or scroll_end to escape an unproductive route.
 - Scroll only when needed and by the minimum direction needed to expose the next target.
+- When the current page already shows the requested answer, finish with done (or memorize then
+  done) instead of opening extra detail views.
 - Use done only when the current screenshot visibly proves every requested condition. For
   information-retrieval tasks, put the concise final answer in value.
 - Never perform an irreversible action unless the task explicitly requests it.
@@ -101,8 +103,11 @@ Screenshots are authoritative for visibility/layout; compact page context is sup
 Do not use outside knowledge or assume an action succeeded.
 
 Accept only when the evidence visibly proves every requested condition and the proposed answer is
-specific, internally consistent, and contains no unsupported additions. If evidence is missing,
-reject and list exactly what must still be found. A corrected answer is allowed only when accepted.
+specific, internally consistent, and contains no unsupported additions. When the task asks for a
+count or multiple items, require distinct supported items rather than a vague summary. Labels and
+section titles count only when the page presents them as the requested answers. If evidence is
+missing, reject and list exactly what must still be found. A corrected answer is allowed only when
+accepted.
 
 Return exactly one JSON object and nothing else:
 {"accepted":true|false,
@@ -207,7 +212,7 @@ class OpenRouterClient:
             system=PLANNER_PROMPT,
             text=json.dumps(context, separators=(",", ":")),
             image=image,
-            max_tokens=1024,
+            max_tokens=self._planner_max_tokens(1024),
             response_type=PlannerAction,
         )
         return await self._request_typed(
@@ -248,7 +253,7 @@ class OpenRouterClient:
             system=VERIFIER_PROMPT,
             text=json.dumps(context, separators=(",", ":")),
             image=[image, *milestone_images[-2:]],
-            max_tokens=512,
+            max_tokens=self._planner_max_tokens(512),
             response_type=VerificationResult,
         )
         return await self._request_typed(
@@ -374,11 +379,22 @@ class OpenRouterClient:
             payload["reasoning"] = {"effort": "none", "exclude": True}
             payload.pop("temperature")
         elif model.startswith("qwen/qwen3.5"):
-            payload["reasoning"] = {"effort": "none", "exclude": True}
+            payload["reasoning"] = {
+                "effort": self.settings.planner_reasoning_effort,
+                "exclude": True,
+            }
         elif model.startswith("anthropic/claude-sonnet-5"):
             payload["reasoning"] = {"effort": "none", "exclude": True}
             payload["verbosity"] = "low"
         return payload
+
+    def _planner_max_tokens(self, base: int) -> int:
+        if (
+            self.settings.planner_model.startswith("qwen/qwen3.5")
+            and self.settings.planner_reasoning_effort != "none"
+        ):
+            return max(4096, base)
+        return base
 
     async def _request_typed(
         self,

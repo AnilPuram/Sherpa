@@ -45,8 +45,8 @@ and UI-TARS grounding before benchmark runs. The final post-cleanup suite result
 
 ## Primary live runs
 
-The first ten entries below correspond to ledger runs 1–10. Entries 11 and 12 correspond to ledger
-runs 23 and 24; ledger runs 11–22 are the repeated accuracy experiments summarized separately.
+The first ten entries below correspond to ledger runs 1–10. Entries 11–14 correspond to ledger
+runs 23–26; ledger runs 11–22 are the repeated accuracy experiments summarized separately.
 
 | # | Goal and configuration | Completion | Strict result | Tokens in/out | Cost | Evidence |
 |---|---|---:|---:|---:|---:|---|
@@ -62,6 +62,8 @@ runs 23 and 24; ledger runs 11–22 are the repeated accuracy experiments summar
 | 10 | Test whether more budget fixes accumulated-history failures. Qwen3.5/UI-TARS, 20/5, read-only. | 7/10 (70%) | 5 pass, 1 uncertain (50% strict) | 804,594 / 16,296 | $0.15825974 | `artifacts/webvoyager-history-20x5-round2-scored.json`; `eval/webvoyager-history-20x5-round2-judgments.json` |
 | 11 | Compare Claude Sonnet 5 as planner while retaining UI-TARS and the 12/3 read-only baseline. | 5/10 (50%) | 4/10 (40%) | 682,225 / 18,530 | $1.47870120 | `artifacts/claude-sonnet5-baseline-round2-scored-report.json`; `eval/claude-sonnet5-baseline-round2-judgments.json` |
 | 12 | Validate strict schema requests, response healing, conservative parsing, and one internal protocol retry with Qwen3.5/UI-TARS, 12/3, read-only. | 6/10 (60%) | 5/10 (50%) | 430,257 / 10,256 | $0.08540017 | `artifacts/json-recovery-qwen-round2-scored-report.json`; `eval/json-recovery-qwen-round2-judgments.json` |
+| 13 | Test Qwen3.5 high reasoning effort for planning and verification with UI-TARS, 12/3, read-only. | 6/10 (60%) | 5/10 (50%) | 618,292 / 78,512 | $0.18698732 | `artifacts/qwen-reasoning-high-round2-scored-report.json`; `eval/qwen-reasoning-high-round2-judgments.json` |
+| 14 | Default unrestricted HTTP, hardened SELECT, enumeration gate, finish-from-evidence prompts, search-URL stagnation feedback, and bounded settle waits. Qwen3.5/UI-TARS, 12/3, reasoning none. | 5/10 (50%) | 6/10 (60%) | 562,042 / 13,463 | $0.10884136 | `artifacts/unrestricted-agent-fixes-round2-scored-report.json`; `eval/unrestricted-agent-fixes-round2-judgments.json` |
 
 ### What each architecture test showed
 
@@ -88,6 +90,14 @@ runs 23 and 24; ledger runs 11–22 are the repeated accuracy experiments summar
   calls; every finish reason was `stop`. Its 50% strict score was one task below the prior 60%
   single-run Qwen result and remained within observed run-to-run variance. The protocol goal
   passed even though task reasoning and live-site failures remained.
+- High Qwen reasoning produced the same 60% completion and 50% strict success as the preceding
+  non-reasoning validation. Output tokens rose from 10,256 to 78,512, cost rose 2.19 times from
+  $0.08540017 to $0.18698732, latency rose from 190.1 to 628.7 seconds, and six high-reasoning
+  outputs hit the token limit before succeeding on an internal retry.
+- Unrestricted HTTP plus agent fixes restored 60% strict success. Coursera--1 passed after site
+  API POSTs were allowed. ESPN--11 produced a correct answer that an over-strict enumeration gate
+  rejected during the run; that gate was narrowed afterward. ArXiv--17 and BBC News--5 remained
+  hard failures.
 
 ## Agentic development runs
 
@@ -157,11 +167,11 @@ and incorrect AirPods answer granularity. No failure in that run was caused by m
 
 ## Aggregate results and conclusions
 
-- The ledger contains 24 scored or diagnostic entries: 12 primary/configuration runs and 12
+- The ledger contains 26 scored or diagnostic entries: 14 primary/configuration runs and 12
   accuracy repeats. Four additional agentic tuning runs were paid but unscored.
-- These 28 paid invocations represent 273 task executions: 113 across the 12 primary/configuration
+- These 30 paid invocations represent 293 task executions: 133 across the 14 primary/configuration
   runs, 120 accuracy-repeat tasks, and 40 agentic tuning tasks.
-- The explicitly recorded WebVoyager costs sum to $5.02260037: $3.57654987 for the 12 primary
+- The explicitly recorded WebVoyager costs sum to $5.31842905: $3.87237855 for the 14 primary
   runs (including the invalid GLM diagnostic and compact smoke), $1.25197553 for accuracy repeats,
   and $0.19407497 for the four extra tuning runs.
 - The best reproducible single-configuration round-2 result was 60% strict success, reached by
@@ -175,13 +185,18 @@ and incorrect AirPods answer granularity. No failure in that run was caused by m
 - Strict JSON recovery solved the malformed-output failure mode for the controlled Qwen run without
   consuming agent steps or corrections. Remaining failures are now attributable to external site
   state or agent reasoning/grounding rather than response parsing.
+- High planner reasoning did not improve strict success in its first controlled run and materially
+  increased cost, latency, output tokens, and protocol truncation. It should not be treated as an
+  accuracy improvement without repeated evidence.
+- Default unrestricted HTTP is now appropriate for SPA benchmarks that rely on GraphQL/XHR POSTs.
+  Deterministic enumeration gates must distinguish total counts from listed subsets.
 
 ## Final repository verification
 
 After documentation and dead-code cleanup:
 
 - `uv run ruff check .`: passed.
-- `uv run pytest`: 74 passed and one opt-in paid real-model test skipped.
+- `uv run pytest`: 79 passed and one opt-in paid real-model test skipped.
 
 The retained suite covers the production compact-DOM/history path, UI-TARS and compatibility
 grounding formats, strict JSON schema recovery, protocol usage accounting, browser execution,

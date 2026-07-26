@@ -107,6 +107,29 @@ Goals, methodology, repeated experiments, and failure analysis are consolidated 
     - Judgments: `eval/json-recovery-qwen-round2-judgments.json`
     - The protocol acceptance target passed. The 50% strict score is one task below the prior
       single-run 60% Qwen result and remains within the observed run-to-run variance.
+25. **High-reasoning validation — Qwen/UI-TARS — 12 / 3 — HTTP read-only**
+    - Planner/verifier reasoning effort: `high`
+    - Completion: 60%; verified success: 50%
+    - Input/output tokens: 618,292 / 78,512; cost: $0.18698732
+    - Protocol recovery: 6 internally recovered truncations across 120 model attempts
+    - Passed: Apple--6, BBC News--6, ESPN--11, GitHub--3, GitHub--12
+    - Failed: Apple--12 (generic repair label rather than two concrete methods), ArXiv--2,
+      ArXiv--17, BBC News--5, Coursera--1
+    - Scored artifact: `artifacts/qwen-reasoning-high-round2-scored-report.json`
+    - Judgments: `eval/qwen-reasoning-high-round2-judgments.json`
+    - High reasoning matched the prior 50% strict result but cost 2.19 times more and introduced
+      six output-limit truncations. It did not improve this task set.
+26. **Unrestricted access + agent fixes — Qwen/UI-TARS — 12 / 3 — unrestricted — reasoning none**
+    - Completion: 50%; verified success: 60%
+    - Input/output tokens: 562,042 / 13,463; cost: $0.10884136
+    - Passed: Apple--6, ArXiv--2, BBC News--6, Coursera--1, ESPN--11, GitHub--3
+    - Failed: Apple--12, ArXiv--17, BBC News--5, GitHub--12
+    - Coursera completed under unrestricted HTTP (site API POSTs allowed).
+    - ESPN produced a correct answer but was blocked mid-run by an over-strict enumeration gate
+      that treated “30 teams” as a list-length claim; the gate was fixed after the run and ESPN
+      was scored pass on answer quality.
+    - Scored artifact: `artifacts/unrestricted-agent-fixes-round2-scored-report.json`
+    - Judgments: `eval/unrestricted-agent-fixes-round2-judgments.json`
 
 The consolidated report records the 12-run comparison and acceptance decisions. None of the
 three levers met the acceptance gate, so their dormant implementation was removed while retaining

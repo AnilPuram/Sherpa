@@ -151,6 +151,7 @@ class SequenceBrowser:
     def __init__(self) -> None:
         self.viewport = Dimensions(width=1280, height=720)
         self.state = 0
+        self.blocked_requests: list[dict[str, str]] = []
 
     async def navigate(self, _: str) -> None:
         return None
@@ -172,6 +173,8 @@ class SequenceBrowser:
             dom=dom,
             change=DomChange(),
             url="https://example.com",
+            scroll_x=0.0,
+            scroll_y=float(self.state * 100),
         )
 
     async def execute(self, *_: object) -> None:
@@ -780,3 +783,125 @@ async def test_sufficient_evidence_finishes_and_verifier_gets_current_dom() -> N
     assert result.outcome == "done"
     assert models.content is not None
     assert models.content.startswith("# Programming for Everybody")
+
+
+def test_enumeration_gate_requires_distinct_items() -> None:
+    from sherpa.agent import _enumeration_gate
+
+    assert _enumeration_gate(
+        "What repair options are mentioned, answer 2 of them.",
+        "Warranty only",
+    )
+    assert (
+        _enumeration_gate(
+            "What repair options are mentioned, answer 2 of them.",
+            "Mail-in repair and in-store service",
+        )
+        is None
+    )
+    # Vague "how many" alone does not force a minimum list length.
+    assert (
+        _enumeration_gate(
+            "Find headphones and how many models are currently available.",
+            "There are 4 models currently available.",
+        )
+        is None
+    )
+    # Claimed "N ...: a, b" under-lists must fail.
+    assert _enumeration_gate(
+        "Find headphones and how many models are currently available.",
+        "There are 4 models: Pro Max.",
+    )
+    assert (
+        _enumeration_gate(
+            "Find headphones and how many models are currently available.",
+            "There are 4 models: Pro Max, Pro, Standard, and Standard ANC.",
+        )
+        is None
+    )
+    # A separate total must not be treated as the enumerated claim.
+    assert (
+        _enumeration_gate(
+            "How many teams are there and list all the teams with 'New' in their name.",
+            "There are 30 teams. The teams with 'New' in their name are: "
+            "New York and New Orleans.",
+        )
+        is None
+    )
+
+
+def test_search_scroll_stagnation_requires_same_url_without_typing() -> None:
+    from sherpa.agent import _search_scroll_stagnation
+    from sherpa.types import ProgressEntry
+
+    current = BrowserObservation(
+        screenshot=b"png",
+        screenshot_fingerprint="a",
+        dom=DomSnapshot(fingerprint="d"),
+        change=DomChange(),
+        url="https://example.com/search?q=climate",
+        scroll_x=0,
+        scroll_y=100,
+    )
+    attempted = [
+        ProgressEntry(
+            step=index,
+            action=Action.SCROLL,
+            value="down",
+            outcome="executed",
+            state_before=f"before-{index}",
+            state_after=f"after-{index}",
+            url_before="https://example.com/search?q=climate",
+            url_after="https://example.com/search?q=climate",
+        )
+        for index in range(1, 4)
+    ]
+    reason = _search_scroll_stagnation(
+        PlannerAction(action=Action.SCROLL, value="down"),
+        attempted,
+        current,
+    )
+    assert reason is not None
+    assert reason[0] == "stagnation"
+    assert "Change the query" in reason[1]
+
+
+@pytest.mark.asyncio
+async def test_enumeration_gate_rejects_done_before_verifier(tmp_path: Path) -> None:
+    class GateModels:
+        def __init__(self) -> None:
+            self.verified = False
+
+        async def plan(self, **_: object) -> ModelResult:
+            return ModelResult(
+                value=PlannerAction(
+                    action="done",
+                    value="Warranty only",
+                ),
+                model="planner",
+                latency_ms=1,
+            )
+
+        async def ground(self, **_: object) -> ModelResult:
+            raise AssertionError("done must not ground")
+
+        async def verify(self, **_: object) -> ModelResult:
+            self.verified = True
+            raise AssertionError("enumeration gate should reject before verify")
+
+    models = GateModels()
+    result = await Agent(
+        SequenceBrowser(),  # type: ignore[arg-type]
+        models,
+        max_steps=1,
+        max_corrections=1,
+        run_log=RunLog(tmp_path / "steps.jsonl"),
+    ).run(
+        "What repair options are mentioned, answer 2 of them.",
+        "https://example.com",
+    )
+    record = json.loads((tmp_path / "steps.jsonl").read_text(encoding="utf-8"))
+    assert result.outcome == "correction_limit"
+    assert models.verified is False
+    assert record["outcome"] == "verification_rejected"
+    assert record["missing_evidence"]

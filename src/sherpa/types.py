@@ -253,6 +253,7 @@ class StepResult(BaseModel):
     dom_controls_truncated: bool = False
     dom_content_truncated: bool = False
     verifier_reason: str | None = None
+    missing_evidence: list[str] = Field(default_factory=list)
 
 
 class AgentRunResult(BaseModel):

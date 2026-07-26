@@ -67,7 +67,16 @@ def parser() -> argparse.ArgumentParser:
     webvoyager.add_argument("--max-cost-usd", type=float, default=1.0)
     webvoyager.add_argument("--max-steps", type=positive_int)
     webvoyager.add_argument("--max-corrections", type=positive_int)
-    webvoyager.add_argument("--allow-write", action="store_true")
+    webvoyager.add_argument(
+        "--read-only",
+        action="store_true",
+        help="Block non GET/HEAD/OPTIONS browser requests",
+    )
+    webvoyager.add_argument(
+        "--allow-write",
+        action="store_true",
+        help="Deprecated alias; unrestricted HTTP is the default",
+    )
     webvoyager.add_argument("--headed", action="store_true")
     webvoyager.add_argument("--real-model", action="store_true")
     return root
@@ -125,7 +134,7 @@ async def run_webvoyager(args: argparse.Namespace) -> int:
         max_cost_usd=args.max_cost_usd,
         headed=args.headed,
         verdicts=load_verdicts(args.judgments),
-        allow_write=args.allow_write,
+        allow_write=not args.read_only,
         max_steps=args.max_steps or settings.max_steps,
         max_corrections=args.max_corrections or settings.max_corrections,
     )

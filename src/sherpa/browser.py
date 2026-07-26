@@ -302,31 +302,71 @@ class Browser:
             await page.keyboard.press("ControlOrMeta+A")
             await page.keyboard.type(action.value or "")
         elif action.action is Action.SELECT:
-            await page.mouse.click(*self._xy(point))
-            is_dropdown = await page.evaluate(
-                """() => {
-                    const element = document.activeElement;
-                    return element?.tagName === "SELECT"
-                        || element?.getAttribute("role") === "combobox"
-                        || element?.getAttribute("aria-haspopup") === "listbox";
-                }"""
-            )
-            if not is_dropdown:
-                raise ValueError("Grounded select target is not a dropdown")
-            await page.keyboard.type(action.value or "")
-            await page.keyboard.press("Enter")
+            await self._select_option(page, point, action.value or "")
         elif action.action is Action.SCROLL:
             direction = -1 if action.value == "up" else 1
             await page.mouse.wheel(0, direction * int(self.viewport.height * 0.8))
         elif action.action is Action.SCROLL_HOME:
-            await page.keyboard.press("Home")
+            await page.evaluate("() => window.scrollTo(0, 0)")
         elif action.action is Action.SCROLL_END:
-            await page.keyboard.press("End")
+            await page.evaluate(
+                "() => window.scrollTo(0, document.documentElement.scrollHeight)"
+            )
         elif action.action is Action.GO_BACK:
             await page.go_back(wait_until="domcontentloaded")
         elif action.action is Action.PRESS_ENTER:
             await page.keyboard.press("Enter")
-        await page.wait_for_timeout(500)
+        await self._wait_for_settle(page)
+
+    async def _select_option(
+        self,
+        page: async_api.Page,
+        point: GroundedPoint | None,
+        value: str,
+    ) -> None:
+        x, y = self._xy(point)
+        await page.mouse.click(x, y)
+        kind = await page.evaluate(
+            """([x, y]) => {
+                const el = document.elementFromPoint(x, y);
+                const select =
+                    el?.closest?.("select")
+                    || (document.activeElement?.tagName === "SELECT"
+                        ? document.activeElement
+                        : null);
+                if (select) return "native";
+                const candidate = document.activeElement || el;
+                if (
+                    candidate?.getAttribute("role") === "combobox"
+                    || candidate?.getAttribute("aria-haspopup") === "listbox"
+                ) {
+                    return "aria";
+                }
+                return null;
+            }""",
+            [x, y],
+        )
+        if kind is None:
+            raise ValueError(
+                "Grounded select target is not a dropdown; retarget a <select> or combobox, "
+                "or click an already-open option"
+            )
+        if kind == "native":
+            focused = page.locator("select:focus")
+            if await focused.count() == 0:
+                focused = page.locator("select").first
+            try:
+                await focused.select_option(label=value, timeout=2_000)
+            except Exception:
+                await focused.select_option(value=value, timeout=2_000)
+            return
+        await page.keyboard.type(value)
+        await page.keyboard.press("Enter")
+
+    async def _wait_for_settle(self, page: async_api.Page) -> None:
+        with suppress(async_api.TimeoutError):
+            await page.wait_for_load_state("domcontentloaded", timeout=2_000)
+        await page.wait_for_timeout(150)
 
     @staticmethod
     def _xy(point: GroundedPoint | None) -> tuple[float, float]:
